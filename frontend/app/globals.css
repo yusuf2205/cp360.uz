@@ -1,0 +1,76 @@
+@import "tailwindcss";
+
+/* Base size 17px (not 16): everything is rem-based, so the "А А А" control scales the whole interface. */
+html { font-size: 17px; }
+
+:root {
+  --background: #f4f5fa;
+  --foreground: #14183a;
+  --card: #ffffff;
+  --line: #d9dcea;
+  --muted: #565d7a;          /* contrast on white >= 6:1 (WCAG AA) */
+  --primary: #2745e8;
+  --primary-soft: #e8ecff;
+  --good: #067a4c;
+  --warn-bg: #fff4d6;
+  --warn-line: #e9cf83;
+  --warn-text: #6b4a00;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0e1120;
+    --foreground: #f0f2fb;
+    --card: #161a2e;
+    --line: #343a5c;
+    --muted: #b3bad2;
+    --primary: #8da0ff;
+    --primary-soft: #232b5c;
+    --good: #4de0a6;
+    --warn-bg: #2a2410;
+    --warn-line: #6a5a24;
+    --warn-text: #f0d27a;
+  }
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-line: var(--line);
+  --color-muted: var(--muted);
+  --color-primary: var(--primary);
+  --color-primary-soft: var(--primary-soft);
+  --color-good: var(--good);
+}
+
+body {
+  font-family: Inter, system-ui, "Segoe UI", Roboto, sans-serif;
+  line-height: 1.5;
+}
+
+/* Always-visible keyboard focus for everyone, not just mouse users. */
+:focus-visible { outline: 3px solid var(--primary); outline-offset: 2px; border-radius: 6px; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}
+
+@layer components {
+  .card { @apply rounded-2xl border border-line bg-card shadow-sm; }
+  /* Touch targets are at least 3rem (~51px): comfortable for fingers, shaky hands and small children. */
+  .btn { @apply inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border-2 border-line bg-card px-5 py-2 text-base font-semibold hover:border-primary disabled:opacity-50; }
+  .btn-primary { @apply inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-primary px-5 py-2 text-base font-bold text-white shadow-sm hover:opacity-90 disabled:opacity-50; }
+  .pill { @apply min-h-11 inline-flex items-center rounded-full border-2 border-line bg-card px-5 py-1.5 text-base font-semibold text-muted hover:border-primary; }
+  .pill-active { @apply min-h-11 inline-flex items-center rounded-full bg-primary px-5 py-1.5 text-base font-bold text-white; }
+  .field { @apply min-h-12 w-full rounded-xl border-2 border-line bg-transparent px-3.5 py-2 text-base outline-none focus:border-primary; }
+  .label-caps { @apply text-sm font-bold text-muted; }
+}
+
+/* Printing the QR dialog: only the card, no buttons. */
+@media print {
+  body * { visibility: hidden !important; }
+  #qr-print, #qr-print * { visibility: visible !important; }
+  #qr-print { position: fixed; inset: 0; margin: auto; box-shadow: none; border: none; height: fit-content; }
+  .no-print { display: none !important; }
+}

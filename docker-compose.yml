@@ -1,0 +1,78 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: procurementpro
+      POSTGRES_USER: procurementpro
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U procurementpro"]
+      interval: 5s
+      retries: 10
+
+  # One-shot: the storage folder is created by Docker as root, but the API runs as an unprivileged user.
+  # Without this every upload fails with "permission denied".
+  perms:
+    image: postgres:16-alpine
+    user: root
+    restart: "no"
+    command: ["sh", "-c", "mkdir -p /s && chown -R 10001:10001 /s"]
+    volumes:
+      - ./data/storage:/s
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      perms:
+        condition: service_completed_successfully
+    environment:
+      DATABASE_URL: postgresql+psycopg://procurementpro:${POSTGRES_PASSWORD}@db:5432/procurementpro
+      SECRET_KEY: ${SECRET_KEY:?set SECRET_KEY in .env}
+      STORAGE_DIR: /data/storage
+      AI_MODE: ${AI_MODE:-off}
+      AI_BASE_URL: ${AI_BASE_URL:-http://host.docker.internal:11434/v1}
+      AI_MODEL: ${AI_MODEL:-qwen2.5:7b-instruct}
+      AI_API_KEY: ${AI_API_KEY:-}
+      AI_EXTERNAL_ALLOWED: ${AI_EXTERNAL_ALLOWED:-false}
+      STT_URL: ${STT_URL:-}
+      BOOTSTRAP_ADMIN_NAME: ${BOOTSTRAP_ADMIN_NAME:-Администратор}
+      BOOTSTRAP_ADMIN_PHONE: ${BOOTSTRAP_ADMIN_PHONE:-}
+      TRUSTED_NETWORKS: ${TRUSTED_NETWORKS:-}
+      LAN_ONLY_INSTANT_LOGIN: ${LAN_ONLY_INSTANT_LOGIN:-true}
+      SESSION_DAYS: ${SESSION_DAYS:-365}
+      OCR_LANGS: ${OCR_LANGS:-rus+eng+uzb}
+      BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:-admin@example.com}
+      BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:?set BOOTSTRAP_ADMIN_PASSWORD in .env}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./data/storage:/data/storage
+    expose: ["8000"]
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        BACKEND_URL: http://backend:8000
+    restart: unless-stopped
+    depends_on: [backend]
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+    # Put HTTPS in front of this port with Cloudflare Tunnel or your existing reverse proxy.
+
+  backup:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    depends_on: [db]
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - ./data/backups:/backups
+      - ./data/storage:/storage:ro
+    entrypoint: ["sh", "-c", "while true; do ts=$$(date +%Y%m%d-%H%M); pg_dump -h db -U procurementpro procurementpro | gzip > /backups/db-$$ts.sql.gz && tar czf /backups/files-$$ts.tgz -C /storage . ; find /backups -type f -mtime +14 -delete; sleep 86400; done"]
