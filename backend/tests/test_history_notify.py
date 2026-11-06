@@ -58,3 +58,16 @@ def test_telegram_failure_never_breaks_the_submission(monkeypatch):
 
     monkeypatch.setattr(notify.httpx, "post", boom)
     assert notify.send_telegram("hi") is False
+
+
+def test_admin_can_sign_in_by_name_but_staff_cannot(client, make_user):
+    from tests.conftest import login  # noqa: F401
+    pm = make_user("pm@example.com", "PROCUREMENT_MANAGER", "Закупки")
+    assert pm
+    r = client.post("/api/auth/login", json={"email": "  admin@example.com ", "password": "admin12345"})
+    assert r.status_code == 200
+    name = r.json()["user"]["name"]
+    assert client.post("/api/auth/login", json={"email": name.upper(), "password": "admin12345"}).status_code == 200
+    assert client.post("/api/auth/login", json={"email": name, "password": "wrong"}).status_code == 401
+    pm_name = client.get("/api/auth/me", headers=pm).json()["name"]
+    assert client.post("/api/auth/login", json={"email": pm_name, "password": "whatever-123"}).status_code == 401

@@ -98,8 +98,8 @@ export default function Login() {
           <form onSubmit={passwordLogin} className="card space-y-5 p-6 sm:p-8">
             {Logo}
             <p className="text-lg font-semibold">Вход администратора по паролю</p>
-            <label className="block"><span className="mb-1.5 block font-semibold">Электронная почта</span>
-              <input className="field" type="email" autoComplete="username" required value={email} onChange={(e) => setEmail(e.target.value)} /></label>
+            <label className="block"><span className="mb-1.5 block font-semibold">Логин (имя или электронная почта)</span>
+              <input className="field" type="text" autoComplete="username" autoCapitalize="none" spellCheck={false} required value={email} onChange={(e) => setEmail(e.target.value)} /></label>
             <label className="block"><span className="mb-1.5 block font-semibold">Пароль</span>
               <div className="flex gap-2">
                 <input className="field" type={show ? "text" : "password"} autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} />

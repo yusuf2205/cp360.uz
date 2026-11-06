@@ -59,12 +59,17 @@ def _ip_key(request: Request) -> str:
 @router.post("/auth/login")
 def password_login(body: LoginIn, request: Request, db: Session = Depends(get_db)):
     """Break-glass / administrator sign-in with e-mail and password."""
-    key = "pw:" + body.email.lower()
+    ident = body.email.strip()
+    key = "pw:" + ident.casefold()
     S.throttle(key, 5)
-    u = db.scalar(select(User).where(User.email == body.email.lower()))
+    if "@" in ident:
+        u = db.scalar(select(User).where(User.email == ident.lower()))
+    else:  # administrator may also sign in by name; only admins with a password, and only if exactly one matches
+        found = [x for x in db.scalars(select(User).where(User.password_hash.is_not(None), User.role.in_(ADMIN_ROLES))) if x.name.strip().casefold() == ident.casefold()]
+        u = found[0] if len(found) == 1 else None
     if not u or not u.active or not u.password_hash or not verify_password(body.password, u.password_hash):
         S.record_fail(key)
-        audit(db, None, "login_failed", detail={"email": body.email.lower()})
+        audit(db, None, "login_failed", detail={"login": ident.casefold()[:100]})
         db.commit()
         raise HTTPException(401, "Invalid credentials")
     sess = S.new_session(db, u, request)
