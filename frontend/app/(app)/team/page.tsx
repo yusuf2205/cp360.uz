@@ -1,4 +1,5 @@
 "use client";
+import PasswordCard from "@/components/PasswordCard";
 import { useCallback, useEffect, useState } from "react";
 import { QrDialog } from "@/components/ShareLink";
 import { api } from "@/lib/api";
@@ -58,6 +59,7 @@ export default function Team() {
         <button className="btn" onClick={() => setQr(true)}>▦ QR-код для входа сотрудников</button>
       </header>
       {qr && <QrDialog url={siteUrl} title="Вход для сотрудников" hint="Сотрудник наводит камеру телефона, вводит своё имя и телефон — и работает. Подходит для офисной сети." onClose={() => setQr(false)} />}
+      {me?.has_password && <PasswordCard />}
       {err && <p role="alert" className="rounded-xl border-2 border-red-300 bg-red-50 p-3 font-medium text-red-800">{err}</p>}
       {msg && <p role="status" className="rounded-xl bg-primary-soft p-3 font-medium">{msg}</p>}
 

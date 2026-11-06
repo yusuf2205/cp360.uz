@@ -71,3 +71,20 @@ def test_admin_can_sign_in_by_name_but_staff_cannot(client, make_user):
     assert client.post("/api/auth/login", json={"email": name, "password": "wrong"}).status_code == 401
     pm_name = client.get("/api/auth/me", headers=pm).json()["name"]
     assert client.post("/api/auth/login", json={"email": pm_name, "password": "whatever-123"}).status_code == 401
+
+
+def test_change_password_needs_current_and_signs_out_other_devices(client):
+    def sign_in(pw="admin12345"):
+        r = client.post("/api/auth/login", json={"email": "admin@example.com", "password": pw})
+        return r, {"Authorization": "Bearer " + r.json().get("access_token", "")}
+
+    _, here = sign_in()
+    _, other = sign_in()
+    url = "/api/auth/change-password"
+    assert client.post(url, json={"current": "wrong-password", "new": "BrandNew-pass-1"}, headers=here).status_code == 403
+    assert client.post(url, json={"current": "admin12345", "new": "short"}, headers=here).status_code == 422
+    assert client.post(url, json={"current": "admin12345", "new": "BrandNew-pass-1"}, headers=here).status_code == 204
+    assert client.get("/api/auth/me", headers=here).status_code == 200      # this device stays signed in
+    assert client.get("/api/auth/me", headers=other).status_code == 401     # the other one is signed out
+    assert sign_in("admin12345")[0].status_code == 401
+    assert sign_in("BrandNew-pass-1")[0].status_code == 200

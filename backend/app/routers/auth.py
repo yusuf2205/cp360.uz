@@ -122,7 +122,33 @@ def device_status(session_id: int, secret: str, request: Request, db: Session = 
 
 @router.get("/auth/me")
 def me(user: User = Depends(current_user)):
-    return {**user_out(user), "session_id": getattr(user, "_session_id", None)}
+    return {**user_out(user), "session_id": getattr(user, "_session_id", None), "has_password": bool(user.password_hash)}
+
+
+class PasswordChange(BaseModel):
+    current: str = Field(max_length=200)
+    new: str = Field(min_length=10, max_length=200)
+
+
+@router.post("/auth/change-password", status_code=204)
+def change_password(body: PasswordChange, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    """Own password only. Needs the current one; every other device of this person is signed out."""
+    key = f"chpw:{user.id}"
+    S.throttle(key, 5)
+    if not user.password_hash:
+        raise HTTPException(400, "У вашей учётной записи нет пароля: вход выполняется по имени и телефону")
+    if not verify_password(body.current, user.password_hash):
+        S.record_fail(key)
+        raise HTTPException(403, "Текущий пароль указан неверно")
+    if body.new == body.current:
+        raise HTTPException(422, "Новый пароль должен отличаться от текущего")
+    user.password_hash = hash_password(body.new)
+    keep = getattr(user, "_session_id", None)
+    for s in db.scalars(select(UserSession).where(UserSession.user_id == user.id, UserSession.status.in_(("ACTIVE", "PENDING")))):
+        if s.id != keep:
+            s.status = "REVOKED"
+    audit(db, user, "password_change", "user", user.id)
+    db.commit()
 
 
 @router.post("/auth/logout", status_code=204)
