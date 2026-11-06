@@ -12,6 +12,29 @@ const STATUS: Record<string, [string, string]> = {
   REVOKED: ["Отозвана", "bg-black/10 text-muted"],
 };
 
+function daysSince(iso: string) {
+  const t = Date.parse(/Z|[+-]\d\d:?\d\d$/.test(iso) ? iso : iso + "Z");
+  return Number.isFinite(t) ? Math.max(0, Math.floor((Date.now() - t) / 86400000)) : 0;
+}
+
+/** One tap to nudge a supplier who has not answered: same link, a polite reminder text, same channels. */
+function Reminder({ r, p, link }: { r: any; p: any; link: string }) {
+  const [open, setOpen] = useState(false);
+  const d = daysSince(r.created_at);
+  const late = d >= 1;
+  return (
+    <div className="mt-3">
+      <button type="button" className={late ? "btn-primary" : "btn"} onClick={() => setOpen(!open)} aria-expanded={open}>
+        🔔 Напомнить поставщику{late ? ` · нет ответа ${d} дн.` : ""}
+      </button>
+      {open && (
+        <ShareLink url={link} who={r.supplier_hint || undefined} subject={`Напоминание: коммерческое предложение ${p.number}`}
+          text={`Здравствуйте! Напоминаем о запросе коммерческого предложения по закупке ${p.number}. Пожалуйста, заполните короткую форму по ссылке, это займёт 2–3 минуты:`} />
+      )}
+    </div>
+  );
+}
+
 export default function SupplierLinks({ p, editable, onPending, onAccepted }: { p: any; editable: boolean; onPending: (n: number) => void; onAccepted: () => void }) {
   const [rows, setRows] = useState<any[]>([]);
   const [f, setF] = useState({ name: "", days: "7", vat: "12", message: "" });
@@ -78,6 +101,7 @@ export default function SupplierLinks({ p, editable, onPending, onAccepted }: { 
                 <>
                   <ShareLink url={url(r.token)} who={r.supplier_hint || undefined} subject={`Запрос коммерческого предложения ${p.number}`}
                     text={`Здравствуйте! Просим направить коммерческое предложение по закупке ${p.number}. Заполните короткую форму по ссылке (2–3 минуты):`} />
+                  {st === "WAITING" && <Reminder r={r} p={p} link={url(r.token)} />}
                   {editable && <button className="mt-2 text-sm font-semibold text-red-600 underline" onClick={() => confirm("Отозвать ссылку? Поставщик больше не сможет её открыть.") && run(() => api(`/api/invitations/${r.id}`, { method: "DELETE" }))}>Отозвать ссылку</button>}
                 </>
               )}

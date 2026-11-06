@@ -8,12 +8,14 @@ import time
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from ..config import settings
 from ..db import get_db
+from ..services import notify
 from ..deps import EDITABLE, audit, get_editable, get_visible, require
 from ..models import Invitation, Item, Offer, OfferLine, Procurement, Submission, Supplier, User
 from .suppliers import find_duplicates, norm_name
@@ -277,7 +279,7 @@ def public_get(token: str, db: Session = Depends(get_db), _: None = Depends(limi
 
 
 @router.post("/api/public/rfq/{token}", status_code=201)
-def public_submit(token: str, body: RfqSubmit, db: Session = Depends(get_db), _: None = Depends(limit_post)):
+def public_submit(token: str, body: RfqSubmit, bg: BackgroundTasks, db: Session = Depends(get_db), _: None = Depends(limit_post)):
     inv, p = _active_invitation(db, token)
     ids = [l.item_id for l in body.lines]
     if len(ids) != len(set(ids)) or not set(ids) <= {i.id for i in p.items}:
@@ -303,4 +305,7 @@ def public_submit(token: str, body: RfqSubmit, db: Session = Depends(get_db), _:
     db.flush()
     audit(db, None, "rfq_submit", "submission", s.id, invitation_id=inv.id, revision=s.revision)
     db.commit()
+    if notify.configured():
+        link = f"{settings.public_base_url.rstrip('/')}/compare" if settings.public_base_url else None
+        bg.add_task(notify.supplier_answered, p.number, payload.get("company") or "—", s.revision, link)
     return {"ok": True, "revision": s.revision}

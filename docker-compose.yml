@@ -41,6 +41,9 @@ services:
       AI_API_KEY: ${AI_API_KEY:-}
       AI_EXTERNAL_ALLOWED: ${AI_EXTERNAL_ALLOWED:-false}
       STT_URL: ${STT_URL:-}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-}
       BOOTSTRAP_ADMIN_NAME: ${BOOTSTRAP_ADMIN_NAME:-Администратор}
       BOOTSTRAP_ADMIN_PHONE: ${BOOTSTRAP_ADMIN_PHONE:-}
       TRUSTED_NETWORKS: ${TRUSTED_NETWORKS:-}
@@ -75,4 +78,7 @@ services:
     volumes:
       - ./data/backups:/backups
       - ./data/storage:/storage:ro
-    entrypoint: ["sh", "-c", "while true; do ts=$$(date +%Y%m%d-%H%M); pg_dump -h db -U procurementpro procurementpro | gzip > /backups/db-$$ts.sql.gz && tar czf /backups/files-$$ts.tgz -C /storage . ; find /backups -type f -mtime +14 -delete; sleep 86400; done"]
+      # Second copy: set EXTRA_BACKUP_DIR in .env to a folder on an external/USB disk or another NAS volume.
+      - ${EXTRA_BACKUP_DIR:-./data/backups-extra}:/extra
+    # Every day: database dump + files archive, copied to /extra too. A failed copy is logged and never stops the loop.
+    entrypoint: ["sh", "-c", "while true; do ts=$$(date +%Y%m%d-%H%M); pg_dump -h db -U procurementpro procurementpro | gzip > /backups/db-$$ts.sql.gz && tar czf /backups/files-$$ts.tgz -C /storage . ; (cp /backups/db-$$ts.sql.gz /backups/files-$$ts.tgz /extra/ && echo extra copy ok $$ts || echo EXTRA COPY FAILED $$ts); find /backups -type f -mtime +14 -delete; find /extra -type f -mtime +${EXTRA_BACKUP_KEEP_DAYS:-60} -delete; sleep 86400; done"]

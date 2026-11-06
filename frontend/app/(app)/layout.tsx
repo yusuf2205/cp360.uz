@@ -14,6 +14,7 @@ const MAIN = [
 const REF = [
   { href: "/procurements", label: "Все закупки", hint: "Список и поиск", icon: "☰" },
   { href: "/suppliers", label: "Поставщики", hint: "Справочник компаний", icon: "⚑" },
+  { href: "/history", label: "История цен", hint: "Сколько платили раньше", icon: "◷" },
 ];
 const TEAM = { href: "/team", label: "Сотрудники", hint: "Кто может входить", icon: "☺" };
 

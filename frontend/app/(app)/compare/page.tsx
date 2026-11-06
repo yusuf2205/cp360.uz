@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import ComparisonTable from "@/components/ComparisonTable";
 import SupplierTotals from "@/components/SupplierTotals";
+import ItemNameInput from "@/components/ItemNameInput";
 import { ActiveBar, NoActive, PageHead } from "@/components/Flow";
 import { api, download } from "@/lib/api";
 import { useActive } from "@/lib/active";
@@ -69,7 +70,8 @@ export default function ComparePage() {
           </div>
           {adding && (
             <form onSubmit={addItem} className="grid gap-2 border-t border-line p-6 sm:grid-cols-6">
-              <input required aria-label="Наименование" className="field sm:col-span-3" placeholder="Наименование, например: Лист ГК 4,0×1500×6000 ГОСТ 19903-2015" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} />
+              <ItemNameInput placeholder="Наименование, например: Лист ГК 4,0×1500×6000 ГОСТ 19903-2015" value={f.name} onChange={(v) => setF({ ...f, name: v })}
+                onPick={(s) => setF({ ...f, name: s.name, unit: s.unit, specs: s.specs || "" })} />
               <input required aria-label="Единица" list="units" className="field" placeholder="Ед." value={f.unit} onChange={(e) => setF({ ...f, unit: e.target.value })} />
               <datalist id="units">{["т", "кг", "м", "шт", "м2", "м3", "л", "компл"].map((u) => <option key={u} value={u} />)}</datalist>
               <input required aria-label="Количество" inputMode="decimal" className="field" placeholder="Кол-во" value={f.quantity} onChange={(e) => setF({ ...f, quantity: e.target.value.replace(",", ".") })} />

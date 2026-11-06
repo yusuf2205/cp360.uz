@@ -3,6 +3,7 @@ import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import ComparisonTable from "@/components/ComparisonTable";
 import WorkflowPanel from "@/components/WorkflowPanel";
+import ItemNameInput from "@/components/ItemNameInput";
 import ImportPanel from "@/components/ImportPanel";
 import { api, download, FLAG_RU, STATUS_RU } from "@/lib/api";
 
@@ -60,7 +61,8 @@ function ItemsTab({ p, editable, reload }: any) {
           <td>{editable && <button className="text-red-600 text-xs" onClick={() => run(() => api(`/api/procurements/${p.id}/items/${it.id}`, { method: "DELETE" }))}>Удалить</button>}</td></tr>)}</tbody></table>
       {editable && (
         <form className="grid sm:grid-cols-6 gap-2" onSubmit={(e) => { e.preventDefault(); run(() => api(`/api/procurements/${p.id}/items`, { body: { ...f, specs: f.specs || null } }).then(() => setF(empty))); }}>
-          <input required aria-label="Наименование" className={`${inp} sm:col-span-3`} placeholder="Наименование, например: Труба 57х3.5 ГОСТ 8732-78 ст20" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} />
+          <ItemNameInput className={`${inp} w-full`} placeholder="Наименование, например: Труба 57х3.5 ГОСТ 8732-78 ст20" value={f.name} onChange={(v) => setF({ ...f, name: v })}
+            onPick={(s) => setF({ ...f, name: s.name, unit: s.unit, specs: s.specs || "" })} />
           <input required aria-label="Единица" list="units" className={inp} placeholder="Ед." value={f.unit} onChange={(e) => setF({ ...f, unit: e.target.value })} />
           <datalist id="units">{["т", "кг", "м", "шт", "м2", "м3", "л", "компл"].map((u) => <option key={u} value={u} />)}</datalist>
           <input required aria-label="Количество" inputMode="decimal" className={inp} placeholder="Кол-во" value={f.quantity} onChange={(e) => setF({ ...f, quantity: e.target.value.replace(",", ".") })} />

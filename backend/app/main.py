@@ -9,7 +9,7 @@ from sqlalchemy import select
 from .config import settings
 from .db import Base, SessionLocal, engine
 from .models import Role, User
-from .routers import auth, dashboard, imports, offers, procurements, rfq, suppliers
+from .routers import auth, dashboard, history, imports, offers, procurements, rfq, suppliers
 from .security import hash_password
 from .services import pipeline
 
@@ -40,7 +40,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="cp360.uz API", version="0.1.0", lifespan=lifespan)
 app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:3000"], allow_methods=["*"], allow_headers=["*"], allow_credentials=False)
-for r in (auth.router, procurements.router, offers.router, suppliers.router, imports.router, dashboard.router, rfq.router):
+for r in (auth.router, procurements.router, offers.router, suppliers.router, imports.router, dashboard.router, rfq.router, history.router):
     app.include_router(r)
 
 
