@@ -9,6 +9,18 @@ export default function SupplierTotals({ p, cmp, editable, rule, setRule, reload
   const [err, setErr] = useState("");
   const run = (fn: () => Promise<any>) => fn().then(() => { setErr(""); setPick(null); setReason(""); reload(); }).catch((e) => setErr(e.message));
   const sel = p.selection?.supplier_id;
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState("");
+  async function refreshCbu() {
+    setBusy(true); setNote(""); setErr("");
+    try {
+      const r = await api(`/api/procurements/${p.id}/rates/refresh`, { method: "POST" });
+      setNote(r.updated.length ? `Курс обновлён: ${r.updated.join(", ")}.` : "Нужных валют нет.");
+      if (r.missing.length) setNote((n) => `${n} В списке Центробанка нет: ${r.missing.join(", ")}. Впишите курс вручную.`);
+      reload();
+    } catch (e: any) { setErr(e.message); }
+    setBusy(false);
+  }
 
   return (
     <div className="space-y-6">
@@ -49,6 +61,12 @@ export default function SupplierTotals({ p, cmp, editable, rule, setRule, reload
         <section className="card p-5 text-sm">
           <h3 className="mb-3 font-bold">Курс валюты (к {p.currency})</h3>
           {Object.keys(p.rates).length > 0 && <p className="mb-3 text-xs text-muted">{Object.entries(p.rates).map(([c, r]: any) => `1 ${c} = ${r.rate} ${p.currency} (${r.date}, ${r.source})`).join("; ")}</p>}
+          {editable && (
+            <div className="mb-3">
+              <button type="button" disabled={busy} className="btn-primary" onClick={refreshCbu}>{busy ? "Загружаю…" : "Взять курс Центробанка"}</button>
+              {note && <p role="status" className="mt-2 text-xs">{note}</p>}
+            </div>
+          )}
           {editable && (
             <form className="flex flex-wrap gap-2" onSubmit={(e) => { e.preventDefault(); run(() => api(`/api/procurements/${p.id}/rates/${rate.currency}`, { method: "PUT", body: { rate: rate.rate, date: rate.date, source: rate.source } })); }}>
               <input aria-label="Валюта" maxLength={3} className="field !w-16" value={rate.currency} onChange={(e) => setRate({ ...rate, currency: e.target.value.toUpperCase() })} />

@@ -88,3 +88,36 @@ def test_change_password_needs_current_and_signs_out_other_devices(client):
     assert client.get("/api/auth/me", headers=other).status_code == 401     # the other one is signed out
     assert sign_in("admin12345")[0].status_code == 401
     assert sign_in("BrandNew-pass-1")[0].status_code == 200
+
+
+def test_cbu_rates_cross_conversion_and_missing():
+    from datetime import date
+    from decimal import Decimal
+
+    from app.services import cbu
+    table = {"USD": (Decimal("12650.5"), date(2026, 11, 5)), "EUR": (Decimal("14000"), date(2026, 11, 5)), "RUB": (Decimal("160"), date(2026, 11, 5))}
+    r, miss = cbu.rates_for("UZS", ["USD", "XXX", "UZS"], table)
+    assert r["USD"]["rate"] == "12650.5" and r["USD"]["source"] == "ЦБ Узбекистана" and miss == ["XXX"]
+    r, _ = cbu.rates_for("USD", ["UZS", "EUR"], table)  # base is a foreign currency: cross rates
+    assert r["EUR"]["rate"] == format((Decimal("14000") / Decimal("12650.5")).quantize(Decimal("0.000001")).normalize(), "f")
+    assert Decimal(r["UZS"]["rate"]) == (Decimal(1) / Decimal("12650.5")).quantize(Decimal("0.000001"))
+
+
+def test_refresh_rates_endpoint_and_offline_message(client, make_user, monkeypatch):
+    from datetime import date
+    from decimal import Decimal
+
+    from app.services import cbu
+    pm = make_user("pm@example.com", "PROCUREMENT_MANAGER", "Закупки")
+    p = setup_proc(client, pm)
+    monkeypatch.setattr(cbu, "fetch_cbu", lambda: {"USD": (Decimal("12650.5"), date(2026, 11, 5)), "EUR": (Decimal("14000"), date(2026, 11, 5))})
+    r = client.post(f"/api/procurements/{p['id']}/rates/refresh", headers=pm)
+    assert r.status_code == 200 and r.json()["updated"] == ["EUR", "USD"] and r.json()["rates"]["USD"]["rate"] == "12650.5"
+
+    def down():
+        raise cbu.RatesUnavailable("ConnectError")
+
+    monkeypatch.setattr(cbu, "fetch_cbu", down)
+    r = client.post(f"/api/procurements/{p['id']}/rates/refresh", headers=pm)
+    assert r.status_code == 502 and "Центрального банка" in str(r.json())
+    assert client.get(f"/api/procurements/{p['id']}", headers=pm).json()["rates"]["USD"]["rate"] == "12650.5"  # old rate untouched

@@ -1,4 +1,5 @@
 "use client";
+import InstallHint from "@/components/InstallHint";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { api, fmt } from "@/lib/api";
@@ -22,6 +23,7 @@ export default function Dashboard() {
   if (!d) return <div className="grid grid-cols-2 md:grid-cols-4 gap-3">{Array.from({ length: 8 }).map((_, i) => <div key={i} className="h-20 animate-pulse rounded-lg bg-black/5 dark:bg-white/10" />)}</div>;
   return (
     <div className="space-y-6">
+      <InstallHint />
       <h1 className="text-xl font-semibold">Панель</h1>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {CARDS.map(([k, label, status]) => (

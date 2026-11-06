@@ -174,6 +174,26 @@ def del_item(pid: int, iid: int, db: Session = Depends(get_db), user: User = Dep
     db.commit()
 
 
+@router.post("/{pid}/rates/refresh")
+def refresh_rates(pid: int, db: Session = Depends(get_db), user: User = Depends(require("procurement.edit"))):
+    """One button: official CBU rates for every foreign currency used in this procurement (or USD/EUR if none yet)."""
+    from ..services import cbu
+
+    p = get_editable(db, user, pid)
+    wanted = sorted({o.currency for o in p.offers} | set(p.rates)) or ["USD", "EUR"]
+    wanted = [c for c in wanted if c != p.currency] or ["USD", "EUR"]
+    try:
+        table = cbu.fetch_cbu()
+    except cbu.RatesUnavailable:
+        raise HTTPException(502, "Не удалось получить курс с сайта Центрального банка. Проверьте интернет на сервере или впишите курс вручную")
+    new, missing = cbu.rates_for(p.currency, wanted, table)
+    if new:
+        p.rates = {**p.rates, **new}
+        audit(db, user, "rates_refresh", "procurement", p.id, currencies=sorted(new), source="CBU")
+        db.commit()
+    return {"rates": p.rates, "updated": sorted(new), "missing": missing}
+
+
 @router.put("/{pid}/rates/{currency}")
 def set_rate(pid: int, currency: str, body: RateIn, db: Session = Depends(get_db), user: User = Depends(require("procurement.edit"))):
     p = get_editable(db, user, pid)
